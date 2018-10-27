@@ -6,7 +6,8 @@
 #include <ctype.h>
 
 
-
+void node_destroy(TLDNode * node);
+bool date_between(Date * date, Date * start_date, Date * end_date);
 
 struct date{
 	int day;
@@ -17,9 +18,13 @@ struct date{
 struct tldlist{
 	Date * start_date;
 	Date * end_date;
+	TLDNode * root_node;
 };
 
 struct tldnode{
+	char * tld_value;
+	TLDNode * left_node;
+	TLDNode * right_node;
 };
 
 struct tlditerator{
@@ -30,7 +35,8 @@ int main(){
 	Date * startDate = date_create("01/02/2001");
 	Date * endDate = date_create("22/02/2001");
 	TLDList * tldlist = tldlist_create(startDate, endDate);
-	printf("start date day should be 1: %d, end date day should be 22: %d\n", tldlist->start_date->day, tldlist->end_date->day);	
+	printf("start date day should be 1: %d, end date day should be 22: %d\n", tldlist->start_date->day, tldlist->end_date->day);
+	tldlist_destroy(tldlist);	
 }
 
 
@@ -46,6 +52,11 @@ TLDList *tldlist_create(Date *begin, Date *end){
 	if(newTLDList == NULL){
 	return NULL;
 	}
+	TLDNode *new_root_node = (TLDNode*) malloc(sizeof(TLDNode));
+	if(new_root_node == NULL){
+		return NULL;
+	}
+	newTLDList->root_node = new_root_node;
 	newTLDList->start_date = begin;
 	newTLDList->end_date = end;
 	return newTLDList;
@@ -57,14 +68,44 @@ TLDList *tldlist_create(Date *begin, Date *end){
  *
  * all heap allocated storage associated with the list is returned to the heap
  */
-void tldlist_destroy(TLDList *tld);
+
+//TODO find way to test this
+void tldlist_destroy(TLDList *tld){
+	date_destroy(tld->start_date);
+	date_destroy(tld->end_date);
+	node_destroy(tld->root_node);
+}
+
+void node_destroy(TLDNode * node){
+	if(node == NULL){
+		return;
+	}
+	node_destroy(node->left_node);
+	node_destroy(node->right_node);
+	free(node);
+}
 
 /*
  * tldlist_add adds the TLD contained in `hostname' to the tldlist if
  * `d' falls in the begin and end dates associated with the list;
  * returns 1 if the entry was counted, 0 if not
  */
-int tldlist_add(TLDList *tld, char *hostname, Date *d);
+int tldlist_add(TLDList *tld, char *hostname, Date *d){
+	if(date_between(d, tld->start_date, tld->end_date)){
+		TLDNode * new_node = (TLDNode*) malloc(sizeof(TLDNode));
+		new_node->tld_value = hostname;
+		add_node(tld, new_node);
+	}	
+};
+
+/*checks if date is between start_date and end_date*/
+bool date_between(Date * date, Date * start_date, Date * end_date){
+	return ((date_compare(date,start_date) >= 0) && (date_compare(end_date, date) >= 0));
+}
+
+void add_node(TLDList * tldlist, TLDNode * node){
+	return;
+}
 
 /*
  * tldlist_count returns the number of successful tldlist_add() calls since
