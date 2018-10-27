@@ -1,0 +1,2 @@
+int functionA();
+int functionB();
