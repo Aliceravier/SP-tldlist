@@ -5,9 +5,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-
+void add_node(TLDNode* root_node, TLDNode * node);
 void node_destroy(TLDNode * node);
 bool date_between(Date * date, Date * start_date, Date * end_date);
+char *strlwr(char *str);
 
 struct date{
 	int day;
@@ -33,10 +34,14 @@ struct tlditerator{
 
 int main(){
 	Date * startDate = date_create("01/02/2001");
-	Date * endDate = date_create("22/02/2001");
+	Date * endDate = date_create("22/02/2008");
 	TLDList * tldlist = tldlist_create(startDate, endDate);
 	printf("start date day should be 1: %d, end date day should be 22: %d\n", tldlist->start_date->day, tldlist->end_date->day);
-	tldlist_destroy(tldlist);	
+	Date * com_date = date_create("04/03/2002");
+	char com[3] = "com";
+	tldlist_add(tldlist, com, com_date);
+
+	tldlist_destroy(tldlist);
 }
 
 
@@ -90,12 +95,16 @@ void node_destroy(TLDNode * node){
  * `d' falls in the begin and end dates associated with the list;
  * returns 1 if the entry was counted, 0 if not
  */
+
+//TODO refactor so don't switch btw hostname and node twice
 int tldlist_add(TLDList *tld, char *hostname, Date *d){
 	if(date_between(d, tld->start_date, tld->end_date)){
 		TLDNode * new_node = (TLDNode*) malloc(sizeof(TLDNode));
-		new_node->tld_value = hostname;
-		add_node(tld, new_node);
-	}	
+		new_node->tld_value = strlwr(hostname);
+		add_node(tld->root_node, new_node);
+		return 1;
+	}
+	return 0;	
 };
 
 /*checks if date is between start_date and end_date*/
@@ -103,9 +112,39 @@ bool date_between(Date * date, Date * start_date, Date * end_date){
 	return ((date_compare(date,start_date) >= 0) && (date_compare(end_date, date) >= 0));
 }
 
-void add_node(TLDList * tldlist, TLDNode * node){
+void add_node(TLDNode* root_node, TLDNode * node){
+	char * tld_value_in = node->tld_value;
+	if(tld_value_in  < root_node->tld_value){
+		if(root_node->left_node == NULL){
+			root_node->left_node = node;
+		}
+		else{
+			add_node(root_node->left_node, node);	
+		}
+	}
+	if(tld_value_in >= root_node->tld_value){
+		if(root_node->right_node == NULL){
+			root_node->right_node = node;
+		}
+		else{
+			add_node(root_node->right_node, node);	
+		}
+	}
+
 	return;
 }
+
+
+//Might cause problems with immutable strings
+char *strlwr(char *str){
+	int i = 0;	
+	while(str[i]){
+		str[i] = tolower(str[i]);
+	i++;
+	}
+return str;
+}
+
 
 /*
  * tldlist_count returns the number of successful tldlist_add() calls since
