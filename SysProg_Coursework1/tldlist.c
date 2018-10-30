@@ -38,7 +38,7 @@ struct tlditerator{
 };
 
 
-int main(){
+/*int main(){
 	Date * startDate = date_create("01/02/2001");
 	Date * endDate = date_create("22/02/2008");
 	TLDList * tldlist = tldlist_create(startDate, endDate);
@@ -47,11 +47,8 @@ int main(){
 	char com[3] = "com";
 	tldlist_add(tldlist, com, com_date);
 	TLDIterator * iter = tldlist_iter_create(tldlist);
-	//TOFIX segfaults
-	TLDNode * node = tldlist_iter_next(iter);
-	
 	tldlist_destroy(tldlist);
-}
+}*/
 
 
 /*
@@ -115,7 +112,8 @@ int tldlist_add(TLDList *tld, char *hostname, Date *d){
 		return 1;
 		}
 	if(date_between(d, tld->start_date, tld->end_date)){
-		if(add_node(tld->root_node, strlwr(hostname))){
+		char * parsed_hostname = strlwr(strrchr(hostname, '.'));
+		if(add_node(tld->root_node, parsed_hostname)){
 			tld->nb_nodes++;
 			return 1;
 		}
@@ -224,12 +222,18 @@ TLDNode *tldlist_iter_next(TLDIterator *iter){
 
 //segfaults TODO
 TLDNode *find_next_node(TLDNode* node){
+	if(!node){
+		return NULL;
+	}
 	if(node->right_node){
 		TLDNode * cur_node = node->right_node;
 		while(cur_node){
 			cur_node = cur_node->left_node;
 		}
 		return cur_node->parent;
+	}
+	else if(node->parent == NULL){
+		return NULL;
 	}
 	else{
 		if(node->parent->left_node == node){

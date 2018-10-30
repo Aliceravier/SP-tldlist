@@ -14,4 +14,7 @@ clean:
 	rm -f *.o tldmonitor
 
 debug:
-	gdb ./tldmonitor
+	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
+	
+gdb:
+	gdb --tui --args ./tldmonitor 01/01/2000 01/01/2003 < small.txt
