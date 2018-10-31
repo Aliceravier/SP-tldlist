@@ -15,6 +15,8 @@ clean:
 
 debug:
 	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
+	gdb --tui ./tldmonitor
+#r date date file
 	
 gdb:
-	gdb --tui --args ./tldmonitor 01/01/2000 01/01/2003 < small.txt
+	r ./tldmonitor 01/01/2000 01/01/2003 small.txt

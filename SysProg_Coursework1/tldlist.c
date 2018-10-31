@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+//TODO fix tldvalue (is empty string atm)
+//TODO fix tldlist_next_iter never ending
+
+
 int add_node(TLDNode* root_node, char* hostname);
 void node_destroy(TLDNode * node);
 bool date_between(Date * date, Date * start_date, Date * end_date);
@@ -112,7 +116,7 @@ int tldlist_add(TLDList *tld, char *hostname, Date *d){
 		return 1;
 		}
 	if(date_between(d, tld->start_date, tld->end_date)){
-		char * parsed_hostname = strlwr(strrchr(hostname, '.'));
+		char * parsed_hostname = strlwr(strrchr(hostname, '.')+ 1); //+1 to eliminate the dot
 		if(add_node(tld->root_node, parsed_hostname)){
 			tld->nb_nodes++;
 			return 1;
@@ -138,6 +142,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			root_node->left_node = node_to_add;
 			node_to_add->parent = root_node->left_node;
 			node_to_add->nb_tlds = 1;
+			free(hostname_to_add);
 			return 1;
 		}
 		else{
@@ -154,6 +159,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			root_node->right_node = node_to_add;
 			node_to_add->parent = root_node->right_node;
 			node_to_add->nb_tlds = 1;
+			free(hostname_to_add);
 			return 1;
 		}
 		else{
@@ -162,6 +168,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 	}
 	else{
 		root_node->nb_tlds++;
+		free(hostname_to_add);
 		return 1;
 	}
 		
@@ -170,14 +177,13 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 
 //Might cause problems with immutable strings
 char *strlwr(char *str){
-	int i = 0;	
-	while(str[i]){
-		str[i] = tolower(str[i]);
-	i++;
+	char * newStr;
+	newStr=(char*) malloc((strlen(str)+1)*sizeof(char));
+	for(int i=  0; i<strlen(str); i++){			
+		newStr[i] = tolower(str[i]);
 	}
-return str;
+return newStr;
 }
-
 
 /*
  * tldlist_count returns the number of successful tldlist_add() calls since
@@ -227,10 +233,12 @@ TLDNode *find_next_node(TLDNode* node){
 	}
 	if(node->right_node){
 		TLDNode * cur_node = node->right_node;
+		TLDNode * parent_node = node;
 		while(cur_node){
+			parent_node = cur_node;
 			cur_node = cur_node->left_node;
 		}
-		return cur_node->parent;
+		return parent_node;
 	}
 	else if(node->parent == NULL){
 		return NULL;
