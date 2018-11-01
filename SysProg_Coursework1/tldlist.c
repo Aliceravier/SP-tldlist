@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <math.h>
 
 int add_node(TLDNode* root_node, char* hostname, TLDList * tld);
 void node_destroy(TLDNode * node);
@@ -118,10 +117,7 @@ TLDList *tldlist_create(Date *begin, Date *end){
  * all heap allocated storage associated with the list is returned to the heap
  */
 
-//TODO find way to test this
 void tldlist_destroy(TLDList *tld){
-	date_destroy(tld->start_date);
-	date_destroy(tld->end_date);
 	node_destroy(tld->root_node);
 	free(tld);
 }
@@ -134,6 +130,7 @@ void node_destroy(TLDNode * node){
 	}
 	node_destroy(node->left_node);
 	node_destroy(node->right_node);
+	free(node->tld_value);
 	free(node);
 }
 
@@ -147,6 +144,7 @@ int tldlist_add(TLDList *tld, char *hostname, Date *d){
 	if(date_between(d, tld->start_date, tld->end_date)){
 		char * parsed_hostname = strlwr(strrchr(hostname, '.')+ 1); //+1 to eliminate the dot
 		if(parsed_hostname == NULL){
+			free(parsed_hostname); //throws error??? free (NULL)
 			return 0;
 		}
 		if(tld->root_node == NULL){
@@ -187,7 +185,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
 			re_height(node_to_add);
-			rebalance(node_to_add->parent, tld);
+			rebalance(root_node, tld);
 			return 1;
 		}
 		else{
@@ -206,7 +204,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
 			re_height(node_to_add);
-			rebalance(node_to_add->parent, tld);
+			rebalance(root_node, tld);
 			return 1;
 		}
 		else{
@@ -216,6 +214,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 	}
 	else{
 		root_node->nb_tlds+=1;
+		free(hostname_to_add);
 		return 1;
 	}
 		
@@ -229,7 +228,7 @@ char *strlwr(char *str){
 	if(newStr == NULL){
 		return NULL;
 	}
-	for(int i=  0; i<strlen(str); i++){			
+	for(int i = 0; i < strlen(str); i++){			
 		newStr[i] = tolower(str[i]);
 	}
 	return newStr;
@@ -326,7 +325,6 @@ TLDNode *find_next_node(TLDNode* node){
  * tldlist_iter_destroy destroys the iterator specified by `iter'
  */
 void tldlist_iter_destroy(TLDIterator *iter){
-	node_destroy(iter->cur_node);
 	free(iter);
 }
 
@@ -363,15 +361,16 @@ void rebalance(TLDNode* node, TLDList * tld){
 		else{
 			node = rotate_right_then_left(node);
 		}
-	
-		if(node->parent != NULL){
-			rebalance(node->parent, tld);
-		}
-		else{
-			tld->root_node = node;
-		}
 	}
+	
+	if(node->parent != NULL){
+		rebalance(node->parent, tld);
+		}
+	else{
+		tld->root_node = node;
+		}
 }
+
 
 TLDNode * rotate_left(TLDNode * node){
 
