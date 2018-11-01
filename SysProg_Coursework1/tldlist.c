@@ -4,15 +4,23 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <math.h>
 
-//TODO fix tldlist_next_iter never ending
-
-
-int add_node(TLDNode* root_node, char* hostname);
+int add_node(TLDNode* root_node, char* hostname, TLDList * tld);
 void node_destroy(TLDNode * node);
 bool date_between(Date * date, Date * start_date, Date * end_date);
 char *strlwr(char *str);
 TLDNode *find_next_node(TLDNode* node);
+void rebalance(TLDNode* node, TLDList * tld);
+TLDNode * rotate_left(TLDNode * node);
+TLDNode * rotate_right(TLDNode * node);
+TLDNode * rotate_left_then_right(TLDNode * node);
+TLDNode * rotate_right_then_left(TLDNode * node);
+void re_height(TLDNode * node);
+void set_balance(TLDNode * node);
+int max(int int1, int int2);
+int height(TLDNode *node);
+
 
 
 struct tldlist{
@@ -26,6 +34,7 @@ struct tldnode{
 	char * tld_value;
 	int nb_tlds;
 	int height;
+	int balance;
 	TLDNode * left_node;
 	TLDNode * right_node;
 	TLDNode * parent;	
@@ -114,6 +123,7 @@ void tldlist_destroy(TLDList *tld){
 	date_destroy(tld->start_date);
 	date_destroy(tld->end_date);
 	node_destroy(tld->root_node);
+	free(tld);
 }
 
 
@@ -122,7 +132,6 @@ void node_destroy(TLDNode * node){
 	if(node == NULL){
 		return;
 	}
-	free(node->tld_value);
 	node_destroy(node->left_node);
 	node_destroy(node->right_node);
 	free(node);
@@ -137,6 +146,9 @@ void node_destroy(TLDNode * node){
 int tldlist_add(TLDList *tld, char *hostname, Date *d){
 	if(date_between(d, tld->start_date, tld->end_date)){
 		char * parsed_hostname = strlwr(strrchr(hostname, '.')+ 1); //+1 to eliminate the dot
+		if(parsed_hostname == NULL){
+			return 0;
+		}
 		if(tld->root_node == NULL){
 			TLDNode * first_node = (TLDNode*) malloc(sizeof(TLDNode));
 			if(first_node == NULL){
@@ -144,12 +156,13 @@ int tldlist_add(TLDList *tld, char *hostname, Date *d){
 			}
 			first_node->nb_tlds = 1;
 			first_node->tld_value = parsed_hostname;
+			first_node->height = 0;
 			tld->root_node = first_node;
 			tld->nb_adds = 1;
 			return 1;
 			}
-		if(add_node(tld->root_node, parsed_hostname)){
-			tld->nb_adds++;
+		if(add_node(tld->root_node, parsed_hostname, tld)){
+			tld->nb_adds+=1;
 			return 1;
 		}
 	}
@@ -162,7 +175,7 @@ bool date_between(Date * date, Date * start_date, Date * end_date){
 }
 
 
-int add_node(TLDNode* root_node, char* hostname_to_add){
+int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 	if(strcmp(hostname_to_add, root_node->tld_value) < 0){
 		if(root_node->left_node == NULL){
 			TLDNode * node_to_add = (TLDNode *) malloc(sizeof(TLDNode));
@@ -173,10 +186,12 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			root_node->left_node = node_to_add;
 			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
+			re_height(node_to_add);
+			rebalance(node_to_add->parent, tld);
 			return 1;
 		}
 		else{
-			add_node(root_node->left_node, hostname_to_add );
+			add_node(root_node->left_node, hostname_to_add, tld);
 			return 1;	
 		}
 	}
@@ -190,16 +205,18 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			root_node->right_node = node_to_add;
 			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
+			re_height(node_to_add);
+			rebalance(node_to_add->parent, tld);
 			return 1;
 		}
 		else{
-			add_node(root_node->right_node, hostname_to_add );
+			add_node(root_node->right_node, hostname_to_add, tld);
 			return 1;	
 		}
 	}
 	else{
 		root_node->nb_tlds+=1;
-			return 1;
+		return 1;
 	}
 		
 	return 0;
@@ -209,10 +226,13 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 char *strlwr(char *str){
 	char * newStr;
 	newStr=(char*) malloc((strlen(str)+1)*sizeof(char));
+	if(newStr == NULL){
+		return NULL;
+	}
 	for(int i=  0; i<strlen(str); i++){			
 		newStr[i] = tolower(str[i]);
 	}
-return newStr;
+	return newStr;
 }
 
 /*
@@ -294,6 +314,7 @@ TLDNode *find_next_node(TLDNode* node){
 			if(parent_node == NULL){
 				return NULL;
 			}
+
 			else{
 				return parent_node;
 			}
@@ -305,8 +326,9 @@ TLDNode *find_next_node(TLDNode* node){
  * tldlist_iter_destroy destroys the iterator specified by `iter'
  */
 void tldlist_iter_destroy(TLDIterator *iter){
+	node_destroy(iter->cur_node);
 	free(iter);
-};
+}
 
 /*
  * tldnode_tldname returns the tld associated with the TLDNode
@@ -322,3 +344,125 @@ char *tldnode_tldname(TLDNode *node){
 long tldnode_count(TLDNode *node){
 	return node->nb_tlds;
 };
+
+void rebalance(TLDNode* node, TLDList * tld){
+	set_balance(node);
+	
+	if(node->balance == -2){
+		if(height(node->left_node->left_node) >= height(node->left_node->right_node)){
+			node = rotate_right(node);
+		}
+		else{
+			node = rotate_left_then_right(node);
+		}
+	}
+	else if(node->balance == 2){
+		if(height(node->right_node->right_node) >= height(node->right_node->right_node)){
+			node = rotate_left(node);
+		}
+		else{
+			node = rotate_right_then_left(node);
+		}
+	
+		if(node->parent != NULL){
+			rebalance(node->parent, tld);
+		}
+		else{
+			tld->root_node = node;
+		}
+	}
+}
+
+TLDNode * rotate_left(TLDNode * node){
+
+	TLDNode * right_child = node->right_node;
+	right_child->parent = node->parent;
+	
+	node->right_node = right_child->left_node;
+		
+	if(node->right_node != NULL){
+		node->right_node->parent = node;
+	}
+	right_child->left_node = node;
+	node->parent = right_child;
+	
+	if(right_child->parent != NULL){
+		if(right_child->parent->right_node == node){
+			right_child->parent->right_node = right_child;
+		}
+		else { 
+			right_child->parent->left_node = right_child;
+		}
+	}
+	
+	set_balance(right_child);
+	set_balance(node);
+	
+	return right_child;
+}
+
+
+TLDNode * rotate_right(TLDNode * node){
+
+	TLDNode * left_child = node->left_node;
+	left_child->parent = node->parent;
+	
+	node->left_node = left_child->right_node;
+		
+	if(node->left_node != NULL){
+		node->left_node->parent = node;
+	}
+	left_child->right_node = node;
+	node->parent = left_child;
+	
+	if(left_child->parent != NULL){
+		if(left_child->parent->right_node == node){
+			left_child->parent->right_node = left_child;
+		}
+		else { 
+			left_child->parent->left_node = left_child;
+		}
+	}
+	
+	set_balance(left_child);
+	set_balance(node);
+	
+	return left_child;
+}
+
+TLDNode * rotate_left_then_right(TLDNode * node){
+	node->left_node = rotate_left(node->left_node);
+	return rotate_right(node);
+}
+
+TLDNode * rotate_right_then_left(TLDNode * node){
+	node->right_node = rotate_right(node->right_node);
+	return rotate_left(node);
+}
+
+void set_balance(TLDNode * node){
+	re_height(node);
+	node->balance = height(node->right_node) - height(node->left_node);
+}
+
+int height(TLDNode *node){
+	if(node == NULL){
+		return -1;
+	}
+	return node->height;
+}
+
+void re_height(TLDNode * node){
+	if(node != NULL){
+		node->height = 1 + max(height(node->left_node), height(node->right_node));
+	}
+}
+
+int max(int int1, int int2){
+	if(int1 < int2){
+		return int2;
+	}
+	else{
+		return int1;
+	}
+}

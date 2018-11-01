@@ -52,7 +52,12 @@ Date * createDateFromString(char *datestr);
  *      */
 Date *date_create(char *datestr){
 	if(isCorrectDateForm(datestr)){
-		return createDateFromString(datestr);
+		if(createDateFromString == NULL){
+			return NULL;
+		}
+		else{
+			return createDateFromString(datestr);
+		}
 	}
 	else
 		return NULL;
@@ -112,6 +117,9 @@ Date * createDateFromString(char *datestr){
 	strYear[3] = datestr[9];
 	
 	Date * createdDatePointer = (Date*) malloc(sizeof(Date));
+	if(createdDatePointer == NULL){
+		return NULL;
+		}
 	createdDatePointer->day = atoi(strDay);
 	createdDatePointer->month = atoi(strMonth);
 	createdDatePointer->year = atoi(strYear);

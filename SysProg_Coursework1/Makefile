@@ -27,6 +27,15 @@ debug:
 	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
 	gdb --tui ./tldmonitor
 #r date date file
+
+debug_gdb:
+	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
+	gdb --tui ./tldmonitor
+
+debug_vg:
+	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
+	valgrind --leak-check=yes --track-origins=yes ./tldmonitor 01/01/2000 01/01/2004 small.txt
+		
 	
 gdb:
 	r 01/01/2000 01/01/2004 small.txt
