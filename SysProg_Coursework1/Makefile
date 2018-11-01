@@ -13,10 +13,20 @@ tldmonitor.o: tldmonitor.c date.h tldlist.h
 clean:
 	rm -f *.o tldmonitor
 
+run:
+	./tldmonitor 01/01/2000 01/01/2004 small.txt
+
+run_small:
+	./tldmonitor 01/01/2000 01/01/2004 small.txt
+
+run_large:
+	./tldmonitor 01/01/1000 01/01/3000 large.txt
+
+
 debug:
 	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
 	gdb --tui ./tldmonitor
 #r date date file
 	
 gdb:
-	r ./tldmonitor 01/01/2000 01/01/2003 small.txt
+	r 01/01/2000 01/01/2004 small.txt

@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-//TODO fix tldvalue (is empty string atm)
 //TODO fix tldlist_next_iter never ending
 
 
@@ -15,17 +14,12 @@ bool date_between(Date * date, Date * start_date, Date * end_date);
 char *strlwr(char *str);
 TLDNode *find_next_node(TLDNode* node);
 
-struct date{
-	int day;
-	int month;
-	int year;
-};
 
 struct tldlist{
 	Date * start_date;
 	Date * end_date;
 	TLDNode * root_node;
-	int nb_nodes;
+	int nb_adds;
 };
 
 struct tldnode{
@@ -46,11 +40,47 @@ struct tlditerator{
 	Date * startDate = date_create("01/02/2001");
 	Date * endDate = date_create("22/02/2008");
 	TLDList * tldlist = tldlist_create(startDate, endDate);
-	printf("start date day should be 1: %d, end date day should be 22: %d\n", tldlist->start_date->day, tldlist->end_date->day);
+	
 	Date * com_date = date_create("04/03/2002");
-	char com[3] = "com";
-	tldlist_add(tldlist, com, com_date);
+	char * hostname_com = "www.intel.com";
+	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_com, com_date));
+	printf("Tldlist should now have root node with\n tld_value com : %s\n nb_tlds 1 : %d\n", tldlist->root_node->tld_value, tldlist->root_node->nb_tlds);  
+
+	printf("Tldlist should have 1 add : %d\n", tldlist->nb_adds);
+
+	Date * uk_date = date_create("12/12/2002");
+	char * hostname_uk = "www.dcs.gla.ac.uk";
+	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_uk, uk_date));
+	printf("Tldlist should now have right node with\n tld_value uk : %s\n nb_tlds 1 : %d\n", tldlist->root_node->right_node->tld_value, tldlist->root_node->right_node->nb_tlds); 
+	
+	printf("Tldlist should have 2 adds : %d\n", tldlist->nb_adds);
+
+	
+	Date * ac_date = date_create("12/10/2002");
+	char * hostname_ac = "www.dcs.gla.ac.ac";
+	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_ac, ac_date));
+	printf("Tldlist should now have left node with\n tld_value ac : %s\n nb_tlds 1 : %d\n", tldlist->root_node->left_node->tld_value, tldlist->root_node->left_node->nb_tlds); 
+
+	printf("Tldlist should have 3 adds : %d\n", tldlist->nb_adds);
+
+	Date * uk_date2 = date_create("12/22/2002");
+	char * hostname_uk2 = "www.dcs.gla.bc.uk";
+	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_uk2, uk_date2));
+	printf("Tldlist should now have right node with\n tld_value uk : %s\n nb_tlds 2 : %d\n", tldlist->root_node->right_node->tld_value, tldlist->root_node->right_node->nb_tlds); 
+
+	printf("Tldlist should have 4 adds : %d\n", tldlist->nb_adds);
+
+
 	TLDIterator * iter = tldlist_iter_create(tldlist);
+	printf("Iterator current node value should be ac : %s\n", iter->cur_node->tld_value);
+
+	TLDNode * next_node = tldlist_iter_next(iter);
+	printf("Next node should have value com: %s\n", next_node->tld_value);
+
+	next_node = tldlist_iter_next(iter);
+	printf("Next node should have value uk: %s\n", next_node->tld_value);
+
+	
 	tldlist_destroy(tldlist);
 }*/
 
@@ -105,20 +135,21 @@ void node_destroy(TLDNode * node){
  */
 
 int tldlist_add(TLDList *tld, char *hostname, Date *d){
-	if(tld->root_node == NULL){
-		TLDNode * first_node = (TLDNode*) malloc(sizeof(TLDNode));
-		if(first_node == NULL){
-				return 0;
-			}
-		first_node->nb_tlds = 1;
-		tld->root_node = first_node;
-		tld->nb_nodes = 1;
-		return 1;
-		}
 	if(date_between(d, tld->start_date, tld->end_date)){
 		char * parsed_hostname = strlwr(strrchr(hostname, '.')+ 1); //+1 to eliminate the dot
+		if(tld->root_node == NULL){
+			TLDNode * first_node = (TLDNode*) malloc(sizeof(TLDNode));
+			if(first_node == NULL){
+				return 0;
+			}
+			first_node->nb_tlds = 1;
+			first_node->tld_value = parsed_hostname;
+			tld->root_node = first_node;
+			tld->nb_adds = 1;
+			return 1;
+			}
 		if(add_node(tld->root_node, parsed_hostname)){
-			tld->nb_nodes++;
+			tld->nb_adds++;
 			return 1;
 		}
 	}
@@ -132,7 +163,7 @@ bool date_between(Date * date, Date * start_date, Date * end_date){
 
 
 int add_node(TLDNode* root_node, char* hostname_to_add){
-	if(hostname_to_add < root_node->tld_value){
+	if(strcmp(hostname_to_add, root_node->tld_value) < 0){
 		if(root_node->left_node == NULL){
 			TLDNode * node_to_add = (TLDNode *) malloc(sizeof(TLDNode));
 			if(node_to_add == NULL){
@@ -140,16 +171,16 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			}
 			node_to_add->tld_value = hostname_to_add;
 			root_node->left_node = node_to_add;
-			node_to_add->parent = root_node->left_node;
+			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
-			free(hostname_to_add);
 			return 1;
 		}
 		else{
-			add_node(root_node->left_node, hostname_to_add );	
+			add_node(root_node->left_node, hostname_to_add );
+			return 1;	
 		}
 	}
-	if(hostname_to_add > root_node->tld_value){
+	if(strcmp(hostname_to_add, root_node->tld_value) > 0){
 		if(root_node->right_node == NULL){
 			TLDNode * node_to_add = (TLDNode *) malloc(sizeof(TLDNode));
 			if(node_to_add == NULL){
@@ -157,19 +188,18 @@ int add_node(TLDNode* root_node, char* hostname_to_add){
 			}
 			node_to_add->tld_value = hostname_to_add;
 			root_node->right_node = node_to_add;
-			node_to_add->parent = root_node->right_node;
+			node_to_add->parent = root_node;
 			node_to_add->nb_tlds = 1;
-			free(hostname_to_add);
 			return 1;
 		}
 		else{
-			add_node(root_node->right_node, hostname_to_add );	
+			add_node(root_node->right_node, hostname_to_add );
+			return 1;	
 		}
 	}
 	else{
-		root_node->nb_tlds++;
-		free(hostname_to_add);
-		return 1;
+		root_node->nb_tlds+=1;
+			return 1;
 	}
 		
 	return 0;
@@ -190,7 +220,7 @@ return newStr;
  * the creation of the TLDList
  */
 long tldlist_count(TLDList *tld){
-	return tld->nb_nodes;		
+	return tld->nb_adds;		
 };
 
 /*
@@ -208,8 +238,8 @@ TLDIterator *tldlist_iter_create(TLDList *tld){
 	TLDNode * prev_node = tld->root_node;
 	TLDNode * cur_node = prev_node->left_node;
 	while(cur_node != NULL){
+		prev_node = cur_node;
 		cur_node = cur_node->left_node;
-		prev_node = prev_node->left_node;
 	}
 	new_iterator->cur_node = prev_node;
 	return new_iterator;
@@ -219,14 +249,21 @@ TLDIterator *tldlist_iter_create(TLDList *tld){
  * tldlist_iter_next returns the next element in the list; returns a pointer
  * to the TLDNode if successful, NULL if no more elements to return
  */
-TLDNode *tldlist_iter_next(TLDIterator *iter){
+
+//init iterator with tldlist
+//in next check for null cur_node if y then do create code else do existing code add if null to next_node so don't loop
+TLDNode *tldlist_iter_next(TLDIterator *iter){	
+	if(iter == NULL){
+		return NULL;
+	}
 	TLDNode * cur_node = iter->cur_node;
-	return find_next_node(cur_node);
+	TLDNode * next_node = find_next_node(cur_node);
+	iter->cur_node = next_node;
+	return cur_node;
 
 };
 
 
-//segfaults TODO
 TLDNode *find_next_node(TLDNode* node){
 	if(!node){
 		return NULL;
