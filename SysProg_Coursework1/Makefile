@@ -34,7 +34,7 @@ debug_gdb:
 
 debug_vg:
 	clang tldmonitor.c tldlist.c date.c -g -o tldmonitor
-	valgrind --leak-check=yes --track-origins=yes ./tldmonitor 01/01/2000 01/01/2004 small.txt
+	valgrind --leak-check=yes --track-origins=yes ./tldmonitor 01/01/2000 01/01/2004 large.txt
 		
 	
 gdb:

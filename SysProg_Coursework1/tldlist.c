@@ -20,6 +20,8 @@ void set_balance(TLDNode * node);
 int max(int int1, int int2);
 int height(TLDNode *node);
 
+//TODO go through gdb check what rebalance is doing using paper
+//TODO fix valgrind uninitialised values?
 
 
 struct tldlist{
@@ -355,7 +357,7 @@ void rebalance(TLDNode* node, TLDList * tld){
 		}
 	}
 	else if(node->balance == 2){
-		if(height(node->right_node->right_node) >= height(node->right_node->right_node)){
+		if(height(node->right_node->right_node) >= height(node->right_node->left_node)){
 			node = rotate_left(node);
 		}
 		else{
@@ -394,8 +396,8 @@ TLDNode * rotate_left(TLDNode * node){
 		}
 	}
 	
-	set_balance(right_child);
 	set_balance(node);
+	set_balance(right_child);
 	
 	return right_child;
 }
@@ -423,8 +425,8 @@ TLDNode * rotate_right(TLDNode * node){
 		}
 	}
 	
-	set_balance(left_child);
 	set_balance(node);
+	set_balance(left_child);
 	
 	return left_child;
 }
