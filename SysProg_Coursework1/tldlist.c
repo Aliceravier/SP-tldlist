@@ -19,6 +19,7 @@ void re_height(TLDNode * node);
 void set_balance(TLDNode * node);
 int max(int int1, int int2);
 int height(TLDNode *node);
+TLDNode * create_node(char* tld_value, int nb_tlds, int height, int balance, TLDNode * left_node, TLDNode * right_node, TLDNode * parent);
 
 //TODO go through gdb check what rebalance is doing using paper
 //TODO fix valgrind uninitialised values?
@@ -44,55 +45,6 @@ struct tldnode{
 struct tlditerator{
 	TLDNode * cur_node;
 };
-
-
-/*int main(){
-	Date * startDate = date_create("01/02/2001");
-	Date * endDate = date_create("22/02/2008");
-	TLDList * tldlist = tldlist_create(startDate, endDate);
-	
-	Date * com_date = date_create("04/03/2002");
-	char * hostname_com = "www.intel.com";
-	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_com, com_date));
-	printf("Tldlist should now have root node with\n tld_value com : %s\n nb_tlds 1 : %d\n", tldlist->root_node->tld_value, tldlist->root_node->nb_tlds);  
-
-	printf("Tldlist should have 1 add : %d\n", tldlist->nb_adds);
-
-	Date * uk_date = date_create("12/12/2002");
-	char * hostname_uk = "www.dcs.gla.ac.uk";
-	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_uk, uk_date));
-	printf("Tldlist should now have right node with\n tld_value uk : %s\n nb_tlds 1 : %d\n", tldlist->root_node->right_node->tld_value, tldlist->root_node->right_node->nb_tlds); 
-	
-	printf("Tldlist should have 2 adds : %d\n", tldlist->nb_adds);
-
-	
-	Date * ac_date = date_create("12/10/2002");
-	char * hostname_ac = "www.dcs.gla.ac.ac";
-	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_ac, ac_date));
-	printf("Tldlist should now have left node with\n tld_value ac : %s\n nb_tlds 1 : %d\n", tldlist->root_node->left_node->tld_value, tldlist->root_node->left_node->nb_tlds); 
-
-	printf("Tldlist should have 3 adds : %d\n", tldlist->nb_adds);
-
-	Date * uk_date2 = date_create("12/22/2002");
-	char * hostname_uk2 = "www.dcs.gla.bc.uk";
-	printf("should be 1 : %d\n",tldlist_add(tldlist, hostname_uk2, uk_date2));
-	printf("Tldlist should now have right node with\n tld_value uk : %s\n nb_tlds 2 : %d\n", tldlist->root_node->right_node->tld_value, tldlist->root_node->right_node->nb_tlds); 
-
-	printf("Tldlist should have 4 adds : %d\n", tldlist->nb_adds);
-
-
-	TLDIterator * iter = tldlist_iter_create(tldlist);
-	printf("Iterator current node value should be ac : %s\n", iter->cur_node->tld_value);
-
-	TLDNode * next_node = tldlist_iter_next(iter);
-	printf("Next node should have value com: %s\n", next_node->tld_value);
-
-	next_node = tldlist_iter_next(iter);
-	printf("Next node should have value uk: %s\n", next_node->tld_value);
-
-	
-	tldlist_destroy(tldlist);
-}*/
 
 
 /*
@@ -124,8 +76,9 @@ void tldlist_destroy(TLDList *tld){
 	free(tld);
 }
 
-
-//destroy parent?
+/*
+ * recursively frees all nodes from the root node "node" including itslef
+ */
 void node_destroy(TLDNode * node){
 	if(node == NULL){
 		return;
@@ -150,13 +103,10 @@ int tldlist_add(TLDList *tld, char *hostname, Date *d){
 			return 0;
 		}
 		if(tld->root_node == NULL){
-			TLDNode * first_node = (TLDNode*) malloc(sizeof(TLDNode));
+			TLDNode * first_node = create_node(parsed_hostname, 1, 0, 0, NULL, NULL, NULL);
 			if(first_node == NULL){
 				return 0;
 			}
-			first_node->nb_tlds = 1;
-			first_node->tld_value = parsed_hostname;
-			first_node->height = 0;
 			tld->root_node = first_node;
 			tld->nb_adds = 1;
 			return 1;
@@ -174,19 +124,29 @@ bool date_between(Date * date, Date * start_date, Date * end_date){
 	return ((date_compare(date,start_date) >= 0) && (date_compare(end_date, date) >= 0));
 }
 
+TLDNode * create_node(char* tld_value, int nb_tlds, int height, int balance, TLDNode * left_node, TLDNode * right_node, TLDNode * parent){
+	TLDNode * new_node = (TLDNode*) malloc(sizeof(TLDNode));
+	if(new_node == NULL){
+			return NULL;
+	}
+	new_node->tld_value = tld_value;
+	new_node->nb_tlds = nb_tlds;
+	new_node->height = height;
+	new_node->balance = balance;
+	new_node->left_node = left_node;
+	new_node->right_node = right_node;
+	new_node->parent = parent;
+	return new_node;
+}
 
 int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 	if(strcmp(hostname_to_add, root_node->tld_value) < 0){
 		if(root_node->left_node == NULL){
-			TLDNode * node_to_add = (TLDNode *) malloc(sizeof(TLDNode));
+			TLDNode * node_to_add = create_node(hostname_to_add, 1, 0, 0, NULL, NULL, root_node);
 			if(node_to_add == NULL){
 				return 0;
 			}
-			node_to_add->tld_value = hostname_to_add;
 			root_node->left_node = node_to_add;
-			node_to_add->parent = root_node;
-			node_to_add->nb_tlds = 1;
-			re_height(node_to_add);
 			rebalance(root_node, tld);
 			return 1;
 		}
@@ -197,15 +157,11 @@ int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 	}
 	if(strcmp(hostname_to_add, root_node->tld_value) > 0){
 		if(root_node->right_node == NULL){
-			TLDNode * node_to_add = (TLDNode *) malloc(sizeof(TLDNode));
+			TLDNode * node_to_add = create_node(hostname_to_add, 1, 0, 0, NULL, NULL, root_node);
 			if(node_to_add == NULL){
 				return 0;
 			}
-			node_to_add->tld_value = hostname_to_add;
 			root_node->right_node = node_to_add;
-			node_to_add->parent = root_node;
-			node_to_add->nb_tlds = 1;
-			re_height(node_to_add);
 			rebalance(root_node, tld);
 			return 1;
 		}
@@ -216,7 +172,7 @@ int add_node(TLDNode* root_node, char* hostname_to_add, TLDList* tld){
 	}
 	else{
 		root_node->nb_tlds+=1;
-		free(hostname_to_add);
+		free(hostname_to_add); //needed?
 		return 1;
 	}
 		
